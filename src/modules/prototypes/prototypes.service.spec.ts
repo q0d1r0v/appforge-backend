@@ -101,7 +101,7 @@ describe('PrototypesService', () => {
         project: { userId: 'user-1' },
       };
       mockPrismaService.screen.findUnique.mockResolvedValue(screen);
-      const newConnections = [{ targetScreenId: 'screen-2', trigger: 'tap' }];
+      const newConnections = [{ targetScreenId: 'screen-2', trigger: 'tap', componentId: 'btn-1' }];
       mockPrismaService.screen.update.mockResolvedValue({
         ...screen,
         connections: newConnections,

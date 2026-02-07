@@ -130,7 +130,7 @@ describe('ProjectsService', () => {
       const result = await service.findAll('user-1', {
         page: 1,
         limit: 10,
-      });
+      }) as any;
 
       expect(result.__paginated).toBe(true);
       expect(result.items).toHaveLength(1);

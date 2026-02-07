@@ -1,99 +1,230 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# AppForge Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+**AppForge** is a platform that allows users to describe their app idea in plain language and automatically generates a complete project plan, screen designs, and prototypes using artificial intelligence.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## What does the platform do?
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+AppForge turns a simple idea into a ready-made project document. The user just writes "I want to build an app that..." — the system handles the rest:
 
-## Project setup
+- Analyzes the idea and creates a list of features
+- Generates wireframes (sketches) for each screen
+- Defines navigation (transitions) between screens
+- Produces time and cost estimates
+- Allows exporting the complete project document
 
-```bash
-$ yarn install
+---
+
+## Complete Workflow
+
+### Step 1: Registration and Login
+
+The user registers on the platform by providing their name, email, and password. A welcome email is sent after registration. For subsequent visits, the user logs in with their email and password. Upon login, the system issues a secure token — all actions are performed on behalf of the user through this token.
+
+### Step 2: Create a New Project
+
+The user creates a new project by:
+- Giving the project a name
+- Writing a detailed description of the app idea (e.g., "A food delivery app where users can browse restaurants, place orders, and track the delivery driver")
+
+As soon as the project is created, the system automatically sends the description to the AI for analysis.
+
+### Step 3: AI Analysis
+
+During this step, the system works in the background — the user doesn't need to wait and receives real-time updates on the progress:
+
+**The AI identifies:**
+- App name and type (mobile app, website, SaaS, etc.)
+- Target audience (who the app is built for)
+- Core problem (what problem the app solves)
+- Feature list — for each feature:
+  - Name and description
+  - Category (authentication, payments, profile, etc.)
+  - Priority level (MVP, high, medium, low)
+  - Complexity rating
+  - Estimated hours
+- Screen list (login, home page, settings, etc.)
+- User personas
+- Technical requirements and recommended technologies
+
+**The user receives real-time notifications during the process:**
+- "Analysis starting..."
+- "Identifying features..."
+- "Analysis complete!"
+
+### Step 4: Wireframe Generation
+
+After the analysis is complete, the system generates a wireframe (screen sketch) for each screen:
+
+- Each screen is sent to the AI individually
+- The AI creates a component structure for the screen (buttons, text fields, images, lists)
+- The position, size, and properties of each component are defined
+- Real-time progress updates are sent: "3/10 screens ready"
+
+The result is a complete visual structure for every screen.
+
+### Step 5: Prototype and Navigation
+
+In this step, the user defines transitions between screens:
+
+- Which button leads to which screen
+- For example: pressing the "Login" button → navigates to the Home screen
+- The system validates all connections — if any screen is incorrectly linked, it reports the issue
+
+This creates a complete navigation flow for the app.
+
+### Step 6: Cost and Time Estimation
+
+The system generates a full cost and time breakdown for the project:
+
+**Hours breakdown:**
+- Design work — 15% of total hours
+- Frontend (what the user sees) — 35%
+- Backend (server side) — 30%
+- Testing — 15%
+- Deployment (launch) — 5%
+
+**Results include:**
+- Total hours
+- Cost for each phase
+- Total project cost
+- Estimated timeline (in weeks)
+- Phase plan (e.g., "Design: 2 weeks, Frontend: 4 weeks...")
+
+### Step 7: Project Management
+
+After a project is created, the user can perform the following actions:
+
+| Action | Description |
+|--------|-------------|
+| View | View project details, features, and screens |
+| Edit | Change the name and description |
+| Re-analyze | Run AI analysis again (get fresh results) |
+| Archive | Move the project to archive (keep without deleting) |
+| Unarchive | Restore an archived project |
+| Export | Download the complete project data |
+| Change status | Move the project to the next stage |
+
+### Step 8: Subscription and Billing
+
+The platform operates with a subscription system:
+
+| Plan | Description |
+|------|-------------|
+| FREE | Free — limited features |
+| STARTER | Starter — expanded functionality |
+| PRO | Professional — full access |
+| ENTERPRISE | Enterprise — custom services |
+
+**Payment flow:**
+1. The user clicks the subscribe button
+2. The system redirects to the Stripe payment page
+3. The user enters their card details and pays
+4. If payment is successful — the plan automatically upgrades to PRO
+5. The subscription can be cancelled at any time (remains active until the end of the current billing period)
+
+### Step 9: Profile Management
+
+The user can manage their profile:
+- Change name, company name, and position
+- Upload a profile picture
+- Change password
+
+---
+
+## Project Statuses
+
+Each project goes through specific stages:
+
+```
+DRAFT (Initial state)
+    ↓
+ANALYZING (AI is processing the idea)
+    ↓
+WIREFRAMING (Screen sketches are being generated)
+    ↓
+READY (All data has been collected)
+    ↓
+IN_DEVELOPMENT (Under development)
+    ↓
+COMPLETED (Finished)
+
+* Any status can be moved to → ARCHIVED
 ```
 
-## Compile and run the project
+---
 
-```bash
-# development
-$ yarn run start
+## User Roles
 
-# watch mode
-$ yarn run start:dev
+| Role | Description |
+|------|-------------|
+| CLIENT | Regular user — creates and manages projects |
+| DEVELOPER | Developer — participates in projects |
+| AGENCY_OWNER | Agency owner — manages a team |
+| ADMIN | Administrator — full system access |
 
-# production mode
-$ yarn run start:prod
+---
+
+## Real-Time Notifications (WebSocket)
+
+The platform sends real-time notifications. The user receives updates without refreshing the page:
+
+- When a project status changes
+- AI analysis progress percentage
+- Wireframe generation progress (e.g., "5/12 screens ready")
+- When an error occurs
+- When another user comes online/goes offline
+- When someone is typing in a project
+
+---
+
+## Email Notifications
+
+The system sends emails in the following cases:
+
+| Event | Email content |
+|-------|---------------|
+| Registration | Welcome! You've successfully joined the platform |
+| Password reset | A link to reset your password |
+| Project ready | Your project has been analyzed by AI and is ready |
+
+---
+
+## File Uploads
+
+The platform supports two types of file uploads:
+
+| File type | Allowed formats | Max size |
+|-----------|-----------------|----------|
+| Profile picture (avatar) | JPEG, PNG, WebP | 2 MB |
+| Project thumbnail | JPEG, PNG, WebP, GIF | 5 MB |
+
+---
+
+## Overall Process Flow
+
+```
+User registers on the platform
+        ↓
+Creates a new project (describes the idea)
+        ↓
+AI analyzes the idea
+├── Features are identified
+├── Screen list is created
+└── User personas are generated
+        ↓
+Wireframes are generated for each screen
+        ↓
+User defines navigation between screens
+        ↓
+Cost and time estimates are generated
+        ↓
+Project is ready — can be exported or moved to development
 ```
 
-## Run tests
+---
 
-```bash
-# unit tests
-$ yarn run test
+## Summary
 
-# e2e tests
-$ yarn run test:e2e
-
-# test coverage
-$ yarn run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ yarn install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-# appforge-backend
+AppForge is a fully automated platform that takes you from idea to a complete project document. With the help of artificial intelligence, users can get a professional-grade project plan without needing any technical knowledge. The platform works in real time, keeps you informed about every step of the process, and allows you to export the complete project data.
