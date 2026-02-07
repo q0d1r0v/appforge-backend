@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
+import { SubscriptionTier } from '@prisma/client';
 import { UsersService } from '@/modules/users/users.service';
 import { EmailService } from '@/modules/email/email.service';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -47,12 +48,25 @@ export class AuthService {
 
   async register(dto: RegisterDto) {
     const user = await this.usersService.create(dto);
-    const { password, ...result } = user;
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    // Set up 14-day PRO trial
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        tier: SubscriptionTier.PRO,
+        trialStartedAt: new Date(),
+        trialEndsAt,
+      },
+    });
+
+    const { password, ...result } = updatedUser as any;
+    const payload = { sub: updatedUser.id, email: updatedUser.email, role: updatedUser.role };
 
     // Send welcome email (fire-and-forget)
-    this.emailService.sendWelcomeEmail(user.email, user.name).catch((err) =>
+    this.emailService.sendWelcomeEmail(updatedUser.email, updatedUser.name).catch((err) =>
       console.error('Failed to send welcome email:', err),
     );
 

@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '@/prisma/prisma.service';
+import { UsageService } from '@/modules/usage/usage.service';
 import { AnalyzeIdeaDto } from './dto/analyze-idea.dto';
 import { buildAnalysisPrompt } from './prompts/analysis.prompt';
 import { buildWireframePrompt } from './prompts/wireframe.prompt';
@@ -15,15 +16,16 @@ export class AIService {
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
+    private usageService: UsageService,
   ) {
     this.anthropic = new Anthropic({
       apiKey: this.configService.get('ai.claudeApiKey'),
     });
   }
 
-  async analyzeIdea(dto: AnalyzeIdeaDto) {
+  async analyzeIdea(dto: AnalyzeIdeaDto, userId?: string) {
     const prompt = buildAnalysisPrompt(dto.description);
-    return this.callClaude(prompt, dto.description);
+    return this.callClaude(prompt, dto.description, undefined, undefined, userId);
   }
 
   async generateWireframe(
@@ -32,6 +34,7 @@ export class AIService {
     appDescription: string,
     features: string[],
     projectId?: string,
+    userId?: string,
   ) {
     const prompt = buildWireframePrompt(
       screenName,
@@ -39,17 +42,17 @@ export class AIService {
       appDescription,
       features,
     );
-    return this.callClaude(prompt, `wireframe: ${screenName}`, projectId);
+    return this.callClaude(prompt, `wireframe: ${screenName}`, projectId, undefined, userId);
   }
 
-  async generateEstimate(projectAnalysis: any, features: any[], projectId?: string) {
+  async generateEstimate(projectAnalysis: any, features: any[], projectId?: string, userId?: string) {
     const prompt = buildEstimatePrompt(projectAnalysis, features);
-    return this.callClaude(prompt, 'estimate generation', projectId);
+    return this.callClaude(prompt, 'estimate generation', projectId, undefined, userId);
   }
 
-  async generateCode(screens: any[], features: any[], techStack: string[], projectId?: string) {
+  async generateCode(screens: any[], features: any[], techStack: string[], projectId?: string, userId?: string) {
     const prompt = buildCodegenPrompt(screens, features, techStack);
-    return this.callClaude(prompt, 'code generation', projectId, 8192);
+    return this.callClaude(prompt, 'code generation', projectId, 8192, userId);
   }
 
   private async callClaude(
@@ -57,6 +60,7 @@ export class AIService {
     inputDescription: string,
     projectId?: string,
     maxTokens?: number,
+    userId?: string,
   ) {
     const startTime = Date.now();
     const model = this.configService.get('ai.model') as string;
@@ -73,16 +77,26 @@ export class AIService {
 
     const parsed = this.parseAIResponse(responseText);
 
+    const tokens = message.usage.input_tokens + message.usage.output_tokens;
+
     // Log prompt history
     this.logPromptHistory(
       inputDescription,
       prompt,
       parsed,
       model,
-      message.usage.input_tokens + message.usage.output_tokens,
+      tokens,
       duration,
       projectId,
+      userId,
     ).catch((err) => console.error('Failed to log prompt history:', err));
+
+    // Record usage
+    if (userId) {
+      this.usageService
+        .recordUsage(userId, tokens)
+        .catch((err) => console.error('Failed to record usage:', err));
+    }
 
     return parsed;
   }
@@ -111,10 +125,12 @@ export class AIService {
     tokens: number,
     duration: number,
     projectId?: string,
+    userId?: string,
   ) {
     await this.prisma.promptHistory.create({
       data: {
         projectId: projectId || null,
+        userId: userId || null,
         input,
         prompt,
         response,

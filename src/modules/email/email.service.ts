@@ -73,6 +73,68 @@ export class EmailService {
     }
   }
 
+  async sendOrganizationInviteEmail(
+    to: string,
+    inviterName: string,
+    orgName: string,
+    token: string,
+  ): Promise<void> {
+    try {
+      const inviteUrl = `${this.frontendUrl}/invites/${token}`;
+      await sgMail.send({
+        to,
+        from: this.fromEmail,
+        subject: `You've been invited to join ${orgName} on AppForge`,
+        html: this.buildOrgInviteHtml(inviterName, orgName, inviteUrl),
+      });
+      this.logger.log(`Organization invite email sent to ${to}`);
+    } catch (error) {
+      this.logger.error(`Failed to send organization invite email to ${to}`, error);
+    }
+  }
+
+  async sendTrialExpiringEmail(to: string, name: string, daysLeft: number): Promise<void> {
+    try {
+      await sgMail.send({
+        to,
+        from: this.fromEmail,
+        subject: `Your AppForge trial expires in ${daysLeft} days`,
+        html: this.buildTrialExpiringHtml(name, daysLeft),
+      });
+      this.logger.log(`Trial expiring email sent to ${to}`);
+    } catch (error) {
+      this.logger.error(`Failed to send trial expiring email to ${to}`, error);
+    }
+  }
+
+  async sendTrialExpiredEmail(to: string, name: string): Promise<void> {
+    try {
+      await sgMail.send({
+        to,
+        from: this.fromEmail,
+        subject: 'Your AppForge trial has expired',
+        html: this.buildTrialExpiredHtml(name),
+      });
+      this.logger.log(`Trial expired email sent to ${to}`);
+    } catch (error) {
+      this.logger.error(`Failed to send trial expired email to ${to}`, error);
+    }
+  }
+
+  async sendQuotaWarningEmail(to: string, name: string, usedPercent: number): Promise<void> {
+    try {
+      await sgMail.send({
+        to,
+        from: this.fromEmail,
+        subject: `You've used ${usedPercent}% of your AppForge token quota`,
+        html: this.buildQuotaWarningHtml(name, usedPercent),
+      });
+      this.logger.log(`Quota warning email sent to ${to}`);
+    } catch (error) {
+      this.logger.error(`Failed to send quota warning email to ${to}`, error);
+    }
+  }
+
   private buildWelcomeHtml(name: string): string {
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -130,6 +192,68 @@ export class EmailService {
         <a href="${projectUrl}"
            style="display: inline-block; padding: 12px 24px; background: #6366f1; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">
           View Your Project
+        </a>
+        <p style="margin-top: 24px; color: #666;">The AppForge Team</p>
+      </div>
+    `;
+  }
+
+  private buildOrgInviteHtml(inviterName: string, orgName: string, inviteUrl: string): string {
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #6366f1;">You're Invited!</h1>
+        <p>${inviterName} has invited you to join <strong>${orgName}</strong> on AppForge.</p>
+        <a href="${inviteUrl}"
+           style="display: inline-block; padding: 12px 24px; background: #6366f1; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">
+          Accept Invitation
+        </a>
+        <p style="margin-top: 24px; color: #666;">This invitation expires in 7 days.</p>
+      </div>
+    `;
+  }
+
+  private buildTrialExpiringHtml(name: string, daysLeft: number): string {
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #6366f1;">Your Trial is Ending Soon</h1>
+        <p>Hi ${name},</p>
+        <p>Your AppForge PRO trial expires in <strong>${daysLeft} days</strong>.</p>
+        <p>Upgrade now to keep access to all PRO features including advanced AI generation and code export.</p>
+        <a href="${this.frontendUrl}/settings/billing"
+           style="display: inline-block; padding: 12px 24px; background: #6366f1; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">
+          Upgrade Now
+        </a>
+        <p style="margin-top: 24px; color: #666;">The AppForge Team</p>
+      </div>
+    `;
+  }
+
+  private buildTrialExpiredHtml(name: string): string {
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #6366f1;">Your Trial Has Expired</h1>
+        <p>Hi ${name},</p>
+        <p>Your AppForge PRO trial has expired. Your account has been moved to the FREE plan.</p>
+        <p>You can still use AppForge with limited features. Upgrade anytime to unlock the full power of AppForge.</p>
+        <a href="${this.frontendUrl}/settings/billing"
+           style="display: inline-block; padding: 12px 24px; background: #6366f1; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">
+          View Plans
+        </a>
+        <p style="margin-top: 24px; color: #666;">The AppForge Team</p>
+      </div>
+    `;
+  }
+
+  private buildQuotaWarningHtml(name: string, usedPercent: number): string {
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #f59e0b;">Token Quota Warning</h1>
+        <p>Hi ${name},</p>
+        <p>You've used <strong>${usedPercent}%</strong> of your monthly AI token quota.</p>
+        <p>Consider upgrading your plan or purchasing additional token packs to avoid interruptions.</p>
+        <a href="${this.frontendUrl}/settings/billing"
+           style="display: inline-block; padding: 12px 24px; background: #6366f1; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">
+          Manage Billing
         </a>
         <p style="margin-top: 24px; color: #666;">The AppForge Team</p>
       </div>

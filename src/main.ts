@@ -64,6 +64,11 @@ async function bootstrap() {
       .addTag('Uploads', 'File upload endpoints')
       .addTag('Events', 'WebSocket real-time events')
       .addTag('Stripe', 'Subscription & billing endpoints')
+      .addTag('Usage', 'Token usage tracking')
+      .addTag('Organizations', 'Organization management')
+      .addTag('Billing', 'Billing & invoices')
+      .addTag('Analytics', 'Usage analytics')
+      .addTag('Admin', 'Admin panel endpoints')
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);

@@ -10,6 +10,16 @@ import Stripe from 'stripe';
 import { PrismaService } from '@/prisma/prisma.service';
 import { STRIPE_CLIENT } from './stripe.constants';
 import { SubscriptionStatus, SubscriptionTier } from '@prisma/client';
+import { getTierForPriceId, getPriceIdForTier } from '@/config/stripe-prices.config';
+import { EventsGateway } from '@/modules/events/events.gateway';
+
+/** Tier ordering for upgrade/downgrade detection */
+const TIER_ORDER: Record<SubscriptionTier, number> = {
+  [SubscriptionTier.FREE]: 0,
+  [SubscriptionTier.STARTER]: 1,
+  [SubscriptionTier.PRO]: 2,
+  [SubscriptionTier.ENTERPRISE]: 3,
+};
 
 @Injectable()
 export class StripeService {
@@ -18,11 +28,13 @@ export class StripeService {
   private readonly successUrl: string;
   private readonly failUrl: string;
   private readonly defaultPriceId: string;
+  private readonly tokenPackPriceId: string;
 
   constructor(
     @Inject(STRIPE_CLIENT) private stripe: Stripe,
     private prisma: PrismaService,
     private configService: ConfigService,
+    private eventsGateway: EventsGateway,
   ) {
     this.webhookSecret =
       this.configService.get<string>('stripe.webhookSecret')!;
@@ -30,9 +42,141 @@ export class StripeService {
     this.failUrl = this.configService.get<string>('stripe.failUrl')!;
     this.defaultPriceId =
       this.configService.get<string>('stripe.subscriptionPriceId')!;
+    this.tokenPackPriceId =
+      this.configService.get<string>('stripe.tokenPackPriceId')!;
   }
 
-  async createCheckoutSession(userId: string, priceId?: string) {
+  async createCheckoutSession(
+    userId: string,
+    priceId?: string,
+    tier?: SubscriptionTier,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await this.stripe.customers.create({
+        email: user.email,
+        name: user.name,
+        metadata: { userId },
+      });
+      customerId = customer.id;
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { stripeCustomerId: customerId },
+      });
+    }
+
+    // Resolve price ID: explicit priceId > tier-based > default
+    let resolvedPriceId = priceId;
+    if (!resolvedPriceId && tier) {
+      resolvedPriceId = getPriceIdForTier(tier) || undefined;
+    }
+
+    const session = await this.stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: resolvedPriceId || this.defaultPriceId,
+          quantity: 1,
+        },
+      ],
+      success_url: `${this.successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: this.failUrl,
+      metadata: { userId },
+    });
+
+    return { url: session.url, sessionId: session.id };
+  }
+
+  async createTierCheckout(userId: string, tier: SubscriptionTier) {
+    if (tier === SubscriptionTier.FREE) {
+      throw new BadRequestException('Cannot create checkout for FREE tier');
+    }
+
+    const priceId = getPriceIdForTier(tier);
+    if (!priceId) {
+      throw new BadRequestException(
+        `No price configured for tier: ${tier}`,
+      );
+    }
+
+    return this.createCheckoutSession(userId, priceId);
+  }
+
+  async changeTier(userId: string, newTier: SubscriptionTier) {
+    if (newTier === SubscriptionTier.FREE) {
+      throw new BadRequestException(
+        'Cannot change to FREE tier. Use cancel subscription instead.',
+      );
+    }
+
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { userId },
+    });
+    if (!subscription) {
+      throw new BadRequestException('No active subscription');
+    }
+
+    const newPriceId = getPriceIdForTier(newTier);
+    if (!newPriceId) {
+      throw new BadRequestException(
+        `No price configured for tier: ${newTier}`,
+      );
+    }
+
+    // Retrieve the current Stripe subscription to get the item ID
+    const stripeSubscription = await this.stripe.subscriptions.retrieve(
+      subscription.stripeSubscriptionId,
+    );
+    const currentItemId = stripeSubscription.items.data[0].id;
+
+    // Update the subscription item's price (Stripe prorates automatically)
+    const updatedSubscription = await this.stripe.subscriptions.update(
+      subscription.stripeSubscriptionId,
+      {
+        items: [
+          {
+            id: currentItemId,
+            price: newPriceId,
+          },
+        ],
+      },
+    );
+
+    // Update local subscription record
+    await this.prisma.subscription.update({
+      where: { userId },
+      data: {
+        priceId: newPriceId,
+        tier: newTier,
+      },
+    });
+
+    // Update user tier
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { tier: newTier },
+    });
+
+    const effectiveDate = new Date(
+      updatedSubscription.items.data[0].current_period_start * 1000,
+    );
+
+    return {
+      message: `Subscription changed to ${newTier}`,
+      effectiveDate,
+    };
+  }
+
+  async purchaseTokenPack(userId: string, quantity: number) {
+    if (!this.tokenPackPriceId) {
+      throw new BadRequestException('Token pack price not configured');
+    }
+
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
@@ -52,20 +196,37 @@ export class StripeService {
 
     const session = await this.stripe.checkout.sessions.create({
       customer: customerId,
-      mode: 'subscription',
+      mode: 'payment',
       payment_method_types: ['card'],
       line_items: [
         {
-          price: priceId || this.defaultPriceId,
-          quantity: 1,
+          price: this.tokenPackPriceId,
+          quantity,
         },
       ],
       success_url: `${this.successUrl}?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: this.failUrl,
-      metadata: { userId },
+      metadata: { userId, type: 'token_pack', quantity: String(quantity) },
     });
 
     return { url: session.url, sessionId: session.id };
+  }
+
+  async createPortalSession(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    if (!user.stripeCustomerId) {
+      throw new BadRequestException('No Stripe customer found for this user');
+    }
+
+    const portalSession =
+      await this.stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: this.successUrl,
+      });
+
+    return { url: portalSession.url };
   }
 
   async handleWebhook(payload: Buffer, signature: string) {
@@ -95,6 +256,14 @@ export class StripeService {
       case 'customer.subscription.deleted':
         await this.handleSubscriptionDeleted(
           event.data.object as Stripe.Subscription,
+        );
+        break;
+      case 'invoice.payment_succeeded':
+      case 'invoice.payment_failed':
+      case 'invoice.finalized':
+        await this.handleInvoiceEvent(
+          event.data.object as Stripe.Invoice,
+          event.type,
         );
         break;
       default:
@@ -133,6 +302,7 @@ export class StripeService {
     return {
       status: subscription.status,
       priceId: subscription.priceId,
+      tier: subscription.tier,
       currentPeriodStart: subscription.currentPeriodStart,
       currentPeriodEnd: subscription.currentPeriodEnd,
       canceledAt: subscription.canceledAt,
@@ -151,6 +321,11 @@ export class StripeService {
     const periodStart = new Date(item.current_period_start * 1000);
     const periodEnd = new Date(item.current_period_end * 1000);
 
+    // Resolve tier from the subscription's price ID
+    const tier = getTierForPriceId(item.price.id);
+    const resolvedTier =
+      tier === SubscriptionTier.FREE ? SubscriptionTier.PRO : tier;
+
     await this.prisma.subscription.upsert({
       where: { userId },
       create: {
@@ -158,6 +333,7 @@ export class StripeService {
         stripeSubscriptionId: subscriptionId,
         status: SubscriptionStatus.ACTIVE,
         priceId: item.price.id,
+        tier: resolvedTier,
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
       },
@@ -165,6 +341,7 @@ export class StripeService {
         stripeSubscriptionId: subscriptionId,
         status: SubscriptionStatus.ACTIVE,
         priceId: item.price.id,
+        tier: resolvedTier,
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
         canceledAt: null,
@@ -173,7 +350,7 @@ export class StripeService {
 
     await this.prisma.user.update({
       where: { id: userId },
-      data: { tier: SubscriptionTier.PRO },
+      data: { tier: resolvedTier },
     });
   }
 
@@ -191,16 +368,29 @@ export class StripeService {
     };
 
     const status = statusMap[subscription.status] || SubscriptionStatus.ACTIVE;
+
+    // Resolve tier from the subscription's price ID
+    const subItem = subscription.items.data[0];
+    const resolvedTier = getTierForPriceId(subItem.price.id);
+
     const tier: SubscriptionTier =
-      status === SubscriptionStatus.ACTIVE || status === SubscriptionStatus.TRIALING
-        ? SubscriptionTier.PRO
+      status === SubscriptionStatus.ACTIVE ||
+      status === SubscriptionStatus.TRIALING
+        ? resolvedTier === SubscriptionTier.FREE
+          ? SubscriptionTier.PRO // fallback for unrecognized price IDs
+          : resolvedTier
         : SubscriptionTier.FREE;
 
-    const subItem = subscription.items.data[0];
+    // Detect downgrade
+    const oldTier = dbSub.tier;
+    const isDowngrade = TIER_ORDER[tier] < TIER_ORDER[oldTier];
+
     await this.prisma.subscription.update({
       where: { stripeSubscriptionId: subscription.id },
       data: {
         status,
+        priceId: subItem.price.id,
+        tier,
         currentPeriodStart: new Date(subItem.current_period_start * 1000),
         currentPeriodEnd: new Date(subItem.current_period_end * 1000),
         canceledAt: subscription.canceled_at
@@ -213,6 +403,16 @@ export class StripeService {
       where: { id: dbSub.userId },
       data: { tier },
     });
+
+    // Send downgrade notification via WebSocket
+    if (isDowngrade) {
+      this.eventsGateway.emitNotification(dbSub.userId, {
+        type: 'subscription:downgraded',
+        title: 'Subscription Downgraded',
+        message: `Your subscription has been changed from ${oldTier} to ${tier}`,
+        metadata: { oldTier, newTier: tier },
+      });
+    }
   }
 
   private async handleSubscriptionDeleted(subscription: Stripe.Subscription) {
@@ -232,6 +432,76 @@ export class StripeService {
     await this.prisma.user.update({
       where: { id: dbSub.userId },
       data: { tier: SubscriptionTier.FREE },
+    });
+  }
+
+  private async handleInvoiceEvent(
+    invoice: Stripe.Invoice,
+    eventType: string,
+  ) {
+    this.logger.log(
+      `Processing invoice event: ${eventType} for invoice ${invoice.id}`,
+    );
+
+    const customerId =
+      typeof invoice.customer === 'string'
+        ? invoice.customer
+        : invoice.customer?.id;
+
+    // Find the user associated with this Stripe customer
+    let userId: string | null = null;
+    if (customerId) {
+      const user = await this.prisma.user.findFirst({
+        where: { stripeCustomerId: customerId },
+        select: { id: true },
+      });
+      userId = user?.id || null;
+    }
+
+    const lineItems = invoice.lines?.data?.map((line) => {
+      const priceRef = line.pricing?.price_details?.price;
+      const priceId =
+        typeof priceRef === 'string' ? priceRef : priceRef?.id || null;
+      return {
+        description: line.description,
+        amount: line.amount,
+        currency: line.currency,
+        quantity: line.quantity,
+        priceId,
+      };
+    });
+
+    const paymentIntentId =
+      (invoice as any).payment_intent?.id ||
+      (typeof (invoice as any).payment_intent === 'string'
+        ? (invoice as any).payment_intent
+        : null);
+
+    await this.prisma.invoice.upsert({
+      where: { stripeInvoiceId: invoice.id },
+      create: {
+        userId,
+        stripeInvoiceId: invoice.id,
+        stripePaymentIntent: paymentIntentId,
+        amountDue: invoice.amount_due,
+        amountPaid: invoice.amount_paid,
+        currency: invoice.currency,
+        status: invoice.status || 'draft',
+        periodStart: new Date(invoice.period_start * 1000),
+        periodEnd: new Date(invoice.period_end * 1000),
+        invoiceUrl: invoice.hosted_invoice_url || null,
+        invoicePdf: invoice.invoice_pdf || null,
+        lineItems: lineItems || null,
+      },
+      update: {
+        stripePaymentIntent: paymentIntentId,
+        amountDue: invoice.amount_due,
+        amountPaid: invoice.amount_paid,
+        status: invoice.status || 'draft',
+        invoiceUrl: invoice.hosted_invoice_url || null,
+        invoicePdf: invoice.invoice_pdf || null,
+        lineItems: lineItems || null,
+      },
     });
   }
 }

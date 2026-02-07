@@ -21,6 +21,19 @@ enum SubscriptionTier {
   ENTERPRISE
 }
 
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -28,26 +41,34 @@ model User {
   name      String
   role      UserRole @default(AGENCY_OWNER)
   avatar    String?
-  
+
   // Company info
   company   String?
   position  String?
-  
+
   // Subscription
   tier      SubscriptionTier @default(FREE)
   stripeCustomerId String? @unique
+
+  // Trial
+  trialStartedAt DateTime?
+  trialEndsAt    DateTime?
+  trialExpired   Boolean   @default(false)
 
   // Relations
   projects  Project[]
   templates Template[]
   subscription   Subscription?
   passwordResets PasswordReset[]
-  
+  promptHistory  PromptHistory[]
+  organizationMembers OrganizationMember[]
+  usageRecords   UsageRecord[]
+
   // Metadata
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   lastLogin DateTime?
-  
+
   @@map("users")
 }
 
@@ -66,6 +87,7 @@ model Subscription {
   stripeSubscriptionId  String             @unique
   status                SubscriptionStatus @default(ACTIVE)
   priceId               String
+  tier                  SubscriptionTier   @default(PRO)
 
   currentPeriodStart    DateTime
   currentPeriodEnd      DateTime
@@ -89,6 +111,67 @@ model PasswordReset {
   @@map("password_resets")
   @@index([token])
   @@index([userId])
+}
+
+// ============================================
+// ORGANIZATIONS
+// ============================================
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+
+  // Billing
+  stripeCustomerId String?          @unique
+  tier             SubscriptionTier @default(FREE)
+
+  // Relations
+  members   OrganizationMember[]
+  invites   OrganizationInvite[]
+  projects  Project[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrganizationRole @default(MEMBER)
+
+  joinedAt       DateTime         @default(now())
+
+  @@unique([organizationId, userId])
+  @@map("organization_members")
+  @@index([userId])
+  @@index([organizationId])
+}
+
+model OrganizationInvite {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           OrganizationRole @default(MEMBER)
+  status         InviteStatus     @default(PENDING)
+  token          String           @unique
+  invitedBy      String
+
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime         @default(now())
+
+  @@map("organization_invites")
+  @@index([email])
+  @@index([token])
+  @@index([organizationId])
 }
 
 // ============================================
@@ -118,13 +201,16 @@ model Project {
   id          String        @id @default(uuid())
   userId      String
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
   // Basic info
   name        String
   description String        @db.Text // Original klient input
   type        ProjectType   @default(MOBILE_APP)
   status      ProjectStatus @default(DRAFT)
-  
+
   // AI Analysis Results
   aiAnalysis  Json?         // Structured AI output
   /*
@@ -138,19 +224,20 @@ model Project {
       estimatedComplexity: 'simple' | 'medium' | 'complex'
     }
   */
-  
+
   // Relations
   screens     Screen[]
   features    Feature[]
   estimate    Estimate?
-  
+
   // Metadata
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   archivedAt  DateTime?
-  
+
   @@map("projects")
   @@index([userId, status])
+  @@index([organizationId])
   @@index([createdAt])
 }
 
@@ -179,12 +266,12 @@ model Screen {
   id          String     @id @default(uuid())
   projectId   String
   project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
+
   // Screen info
   name        String     // "Login Screen"
   type        ScreenType @default(CUSTOM)
   order       Int        // Display order
-  
+
   // Wireframe data
   wireframe   Json       // Component tree structure
   /*
@@ -201,7 +288,7 @@ model Screen {
       ]
     }
   */
-  
+
   // Navigation
   connections Json?      // Links to other screens
   /*
@@ -209,11 +296,11 @@ model Screen {
       { targetScreenId: string, trigger: 'onClick', componentId: string }
     ]
   */
-  
+
   // Metadata
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
-  
+
   @@map("screens")
   @@index([projectId])
   @@unique([projectId, order])
@@ -242,25 +329,25 @@ model Feature {
   id          String          @id @default(uuid())
   projectId   String
   project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
+
   // Feature info
   name        String
   description String          @db.Text
   category    String          // "Authentication", "Payment", "Notifications"
   priority    FeaturePriority @default(MEDIUM)
   status      FeatureStatus   @default(PLANNED)
-  
+
   // Estimation
   estimatedHours Int?
   complexity     Int?          // 1-10 scale
-  
+
   // Dependencies
   dependencies Json?          // [featureId1, featureId2]
-  
+
   // Technical details
   technicalNotes String?       @db.Text
   apiEndpoints   Json?         // Required API endpoints
-  
+
   @@map("features")
   @@index([projectId, priority])
 }
@@ -273,7 +360,7 @@ model Estimate {
   id        String   @id @default(uuid())
   projectId String   @unique
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
+
   // Time estimates
   designHours      Int
   frontendHours    Int
@@ -281,21 +368,21 @@ model Estimate {
   testingHours     Int
   deploymentHours  Int
   totalHours       Int
-  
+
   // Cost breakdown
   designCost       Decimal @db.Decimal(10, 2)
   developmentCost  Decimal @db.Decimal(10, 2)
   infrastructureCost Decimal @db.Decimal(10, 2)
   totalCost        Decimal @db.Decimal(10, 2)
-  
+
   // Timeline
   estimatedDuration String  // "8-10 weeks"
   phases           Json     // [{ name, duration, cost }]
-  
+
   // Metadata
   generatedAt   DateTime @default(now())
   version       Int      @default(1)
-  
+
   @@map("estimates")
 }
 
@@ -319,31 +406,31 @@ model Template {
   id          String           @id @default(uuid())
   userId      String?
   user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
+
   // Template info
   name        String
   description String           @db.Text
   category    TemplateCategory
   thumbnail   String?          // Image URL
-  
+
   // Template data
   screens     Json             // Array of screen configs
   features    Json             // Associated features
-  
+
   // Marketplace
   isPublic    Boolean          @default(false)
   price       Decimal?         @db.Decimal(10, 2)
   downloads   Int              @default(0)
   rating      Decimal?         @db.Decimal(3, 2)
-  
+
   // Tags
   tags        String[]
   techStack   String[]         // ["React Native", "Firebase"]
-  
+
   // Metadata
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
-  
+
   @@map("templates")
   @@index([category, isPublic])
 }
@@ -355,25 +442,87 @@ model Template {
 model PromptHistory {
   id          String   @id @default(uuid())
   projectId   String?
-  
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
   // Prompt data
   input       String   @db.Text  // User's original input
   prompt      String   @db.Text  // Final prompt sent to Claude
   response    Json                // Claude's response
-  
+
   // Model info
   model       String              // "claude-sonnet-4-20250514"
   tokens      Int
   duration    Int                 // ms
-  
+
   // Quality tracking
   wasEdited   Boolean  @default(false)  // Did user edit AI output?
   rating      Int?                       // User feedback (1-5)
-  
+
   createdAt   DateTime @default(now())
-  
+
   @@map("prompt_history")
   @@index([projectId])
+  @@index([userId, createdAt])
   @@index([createdAt])
   @@index([model])
+}
+
+// ============================================
+// BILLING & INVOICES
+// ============================================
+
+model Invoice {
+  id                  String   @id @default(uuid())
+  userId              String?
+  organizationId      String?
+
+  stripeInvoiceId     String   @unique
+  stripePaymentIntent String?
+
+  amountDue           Int      // cents
+  amountPaid          Int      // cents
+  currency            String   @default("usd")
+  status              String   // draft, open, paid, void, uncollectible
+
+  periodStart         DateTime
+  periodEnd           DateTime
+
+  invoiceUrl          String?  // Stripe hosted invoice URL
+  invoicePdf          String?  // PDF download URL
+
+  lineItems           Json?    // Array of line items from Stripe
+
+  createdAt           DateTime @default(now())
+
+  @@map("invoices")
+  @@index([userId])
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
+// ============================================
+// USAGE TRACKING
+// ============================================
+
+model UsageRecord {
+  id            String   @id @default(uuid())
+  userId        String
+
+  // Period
+  year          Int
+  month         Int      // 1-12
+
+  // Aggregated usage
+  totalTokens   Int      @default(0)
+  totalRequests Int      @default(0)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year, month])
+  @@map("usage_records")
+  @@index([userId, year, month])
 }
