@@ -40,7 +40,8 @@ model User {
   // Relations
   projects  Project[]
   templates Template[]
-  subscription Subscription?
+  subscription   Subscription?
+  passwordResets PasswordReset[]
   
   // Metadata
   createdAt DateTime @default(now())
@@ -74,6 +75,20 @@ model Subscription {
   updatedAt             DateTime           @updatedAt
 
   @@map("subscriptions")
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("password_resets")
+  @@index([token])
+  @@index([userId])
 }
 
 // ============================================
@@ -360,4 +375,5 @@ model PromptHistory {
   @@map("prompt_history")
   @@index([projectId])
   @@index([createdAt])
+  @@index([model])
 }

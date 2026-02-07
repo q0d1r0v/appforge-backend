@@ -64,60 +64,63 @@ export class ProjectsService {
         message: 'Structuring features and screens...',
       });
 
-      // Update project with AI analysis
-      await this.prisma.project.update({
-        where: { id: projectId },
-        data: {
-          aiAnalysis: analysis,
-          name: analysis.appName || 'Untitled Project',
-          type: analysis.appType,
-          status: ProjectStatus.WIREFRAMING,
-        },
-      });
-
       this.eventsGateway.emitProjectStatusChanged(userId, projectId, {
         status: ProjectStatus.WIREFRAMING,
         projectName: analysis.appName || 'Untitled Project',
       });
 
-      // Create features
-      if (analysis.features) {
-        await this.prisma.feature.createMany({
-          data: analysis.features.map((feature) => ({
-            projectId,
-            name: feature.name,
-            description: feature.description,
-            category: feature.category,
-            priority: feature.priority,
-            estimatedHours: feature.estimatedHours,
-            complexity: feature.complexity,
-          })),
+      // Use transaction for atomic operations
+      await this.prisma.$transaction(async (tx) => {
+        // Update project with AI analysis
+        await tx.project.update({
+          where: { id: projectId },
+          data: {
+            aiAnalysis: analysis,
+            name: analysis.appName || 'Untitled Project',
+            type: analysis.appType,
+            status: ProjectStatus.WIREFRAMING,
+          },
         });
-      }
 
-      this.eventsGateway.emitAnalysisProgress(userId, projectId, {
-        step: 'screens',
-        progress: 80,
-        message: 'Creating screen structure...',
-      });
+        // Create features
+        if (analysis.features) {
+          await tx.feature.createMany({
+            data: analysis.features.map((feature: any) => ({
+              projectId,
+              name: feature.name,
+              description: feature.description,
+              category: feature.category,
+              priority: feature.priority,
+              estimatedHours: feature.estimatedHours,
+              complexity: feature.complexity,
+            })),
+          });
+        }
 
-      // Create screens
-      if (analysis.screens) {
-        await this.prisma.screen.createMany({
-          data: analysis.screens.map((screen) => ({
-            projectId,
-            name: screen.name,
-            type: screen.type,
-            order: screen.order,
-            wireframe: {}, // Empty wireframe for now
-          })),
+        this.eventsGateway.emitAnalysisProgress(userId, projectId, {
+          step: 'screens',
+          progress: 80,
+          message: 'Creating screen structure...',
         });
-      }
 
-      // Mark as READY
-      await this.prisma.project.update({
-        where: { id: projectId },
-        data: { status: ProjectStatus.READY },
+        // Create screens
+        if (analysis.screens) {
+          await tx.screen.createMany({
+            data: analysis.screens.map((screen: any) => ({
+              projectId,
+              name: screen.name,
+              type: screen.type,
+              order: screen.order,
+              wireframe: {},
+            })),
+          });
+        }
+
+        // Mark as READY
+        await tx.project.update({
+          where: { id: projectId },
+          data: { status: ProjectStatus.READY },
+        });
       });
 
       this.eventsGateway.emitProjectStatusChanged(userId, projectId, {
@@ -167,7 +170,7 @@ export class ProjectsService {
   async findAll(userId: string, query: PaginationQueryDto) {
     const cacheKey = `projects:${userId}:${query.page}:${query.limit}:${query.search || ''}:${query.sortBy || ''}:${query.sortOrder || ''}`;
     const cached = await this.cacheManager.get(cacheKey);
-    if (cached) return cached;
+    if (cached) return cached as any;
 
     const where: Prisma.ProjectWhereInput = { userId };
 

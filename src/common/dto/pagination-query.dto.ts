@@ -2,6 +2,8 @@ import { IsOptional, IsInt, Min, Max, IsString, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
+const ALLOWED_SORT_FIELDS = ['createdAt', 'updatedAt', 'name', 'email'] as const;
+
 export class PaginationQueryDto {
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()
@@ -23,9 +25,9 @@ export class PaginationQueryDto {
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ default: 'createdAt' })
+  @ApiPropertyOptional({ enum: ALLOWED_SORT_FIELDS, default: 'createdAt' })
   @IsOptional()
-  @IsString()
+  @IsIn([...ALLOWED_SORT_FIELDS])
   sortBy?: string = 'createdAt';
 
   @ApiPropertyOptional({ enum: ['asc', 'desc'], default: 'desc' })

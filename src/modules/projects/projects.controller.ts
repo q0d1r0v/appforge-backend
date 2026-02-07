@@ -11,6 +11,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ProjectsService } from './projects.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { ParseUUIDPipe } from '@/common/pipes/parse-uuid.pipe';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
@@ -39,7 +40,7 @@ export class ProjectsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a single project' })
-  findOne(@CurrentUser('id') userId: string, @Param('id') id: string) {
+  findOne(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.projectsService.findOne(id, userId);
   }
 
@@ -47,7 +48,7 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Update a project' })
   update(
     @CurrentUser('id') userId: string,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateProjectDto,
   ) {
     return this.projectsService.update(id, userId, dto);
@@ -55,25 +56,25 @@ export class ProjectsController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a project' })
-  remove(@CurrentUser('id') userId: string, @Param('id') id: string) {
+  remove(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.projectsService.remove(id, userId);
   }
 
   @Post(':id/archive')
   @ApiOperation({ summary: 'Archive a project' })
-  archive(@CurrentUser('id') userId: string, @Param('id') id: string) {
+  archive(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.projectsService.archive(id, userId);
   }
 
   @Post(':id/unarchive')
   @ApiOperation({ summary: 'Unarchive a project' })
-  unarchive(@CurrentUser('id') userId: string, @Param('id') id: string) {
+  unarchive(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.projectsService.unarchive(id, userId);
   }
 
   @Post(':id/reanalyze')
   @ApiOperation({ summary: 'Re-analyze a project' })
-  reanalyze(@CurrentUser('id') userId: string, @Param('id') id: string) {
+  reanalyze(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.projectsService.reanalyze(id, userId);
   }
 
@@ -81,7 +82,7 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Change project status' })
   transitionStatus(
     @CurrentUser('id') userId: string,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('status') status: ProjectStatus,
   ) {
     return this.projectsService.transitionStatus(id, userId, status);
@@ -91,20 +92,20 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Generate project estimate' })
   generateEstimate(
     @CurrentUser('id') userId: string,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.projectsService.generateEstimate(id, userId);
   }
 
   @Get(':id/estimate')
   @ApiOperation({ summary: 'Get project estimate' })
-  getEstimate(@CurrentUser('id') userId: string, @Param('id') id: string) {
+  getEstimate(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.projectsService.getEstimate(id, userId);
   }
 
   @Get(':id/export')
   @ApiOperation({ summary: 'Export a project' })
-  exportProject(@CurrentUser('id') userId: string, @Param('id') id: string) {
+  exportProject(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.projectsService.exportProject(id, userId);
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -94,7 +94,13 @@ export class AIService {
 
     const cleanJson = jsonMatch ? jsonMatch[1] : responseText;
 
-    return JSON.parse(cleanJson.trim());
+    try {
+      return JSON.parse(cleanJson.trim());
+    } catch {
+      throw new BadRequestException(
+        'Failed to parse AI response. Please try again.',
+      );
+    }
   }
 
   private async logPromptHistory(

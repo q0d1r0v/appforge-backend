@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { PrismaService } from '@/prisma/prisma.service';
 import { STRIPE_CLIENT } from './stripe.constants';
+import { SubscriptionStatus, SubscriptionTier } from '@prisma/client';
 
 @Injectable()
 export class StripeService {
@@ -155,14 +156,14 @@ export class StripeService {
       create: {
         userId,
         stripeSubscriptionId: subscriptionId,
-        status: 'ACTIVE',
+        status: SubscriptionStatus.ACTIVE,
         priceId: item.price.id,
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
       },
       update: {
         stripeSubscriptionId: subscriptionId,
-        status: 'ACTIVE',
+        status: SubscriptionStatus.ACTIVE,
         priceId: item.price.id,
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
@@ -172,7 +173,7 @@ export class StripeService {
 
     await this.prisma.user.update({
       where: { id: userId },
-      data: { tier: 'PRO' },
+      data: { tier: SubscriptionTier.PRO },
     });
   }
 
@@ -182,21 +183,24 @@ export class StripeService {
     });
     if (!dbSub) return;
 
-    const statusMap: Record<string, string> = {
-      active: 'ACTIVE',
-      past_due: 'PAST_DUE',
-      canceled: 'CANCELED',
-      trialing: 'TRIALING',
+    const statusMap: Record<string, SubscriptionStatus> = {
+      active: SubscriptionStatus.ACTIVE,
+      past_due: SubscriptionStatus.PAST_DUE,
+      canceled: SubscriptionStatus.CANCELED,
+      trialing: SubscriptionStatus.TRIALING,
     };
 
-    const status = statusMap[subscription.status] || 'ACTIVE';
-    const tier = ['ACTIVE', 'TRIALING'].includes(status) ? 'PRO' : 'FREE';
+    const status = statusMap[subscription.status] || SubscriptionStatus.ACTIVE;
+    const tier: SubscriptionTier =
+      status === SubscriptionStatus.ACTIVE || status === SubscriptionStatus.TRIALING
+        ? SubscriptionTier.PRO
+        : SubscriptionTier.FREE;
 
     const subItem = subscription.items.data[0];
     await this.prisma.subscription.update({
       where: { stripeSubscriptionId: subscription.id },
       data: {
-        status: status as any,
+        status,
         currentPeriodStart: new Date(subItem.current_period_start * 1000),
         currentPeriodEnd: new Date(subItem.current_period_end * 1000),
         canceledAt: subscription.canceled_at
@@ -207,7 +211,7 @@ export class StripeService {
 
     await this.prisma.user.update({
       where: { id: dbSub.userId },
-      data: { tier: tier as any },
+      data: { tier },
     });
   }
 
@@ -220,14 +224,14 @@ export class StripeService {
     await this.prisma.subscription.update({
       where: { stripeSubscriptionId: subscription.id },
       data: {
-        status: 'CANCELED',
+        status: SubscriptionStatus.CANCELED,
         canceledAt: new Date(),
       },
     });
 
     await this.prisma.user.update({
       where: { id: dbSub.userId },
-      data: { tier: 'FREE' },
+      data: { tier: SubscriptionTier.FREE },
     });
   }
 }

@@ -10,6 +10,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { WireframesService } from './wireframes.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { ParseUUIDPipe } from '@/common/pipes/parse-uuid.pipe';
 import { CreateScreenDto } from './dto/create-screen.dto';
 import { UpdateScreenDto } from './dto/update-screen.dto';
 
@@ -23,14 +24,14 @@ export class WireframesController {
   @ApiOperation({ summary: 'Get project screens' })
   findAllByProject(
     @CurrentUser('id') userId: string,
-    @Param('projectId') projectId: string,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
     return this.wireframesService.findAllByProject(projectId, userId);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a single screen' })
-  findOne(@CurrentUser('id') userId: string, @Param('id') id: string) {
+  findOne(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.wireframesService.findOne(id, userId);
   }
 
@@ -44,7 +45,7 @@ export class WireframesController {
   @ApiOperation({ summary: 'Update a screen' })
   update(
     @CurrentUser('id') userId: string,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateScreenDto,
   ) {
     return this.wireframesService.update(id, userId, dto);
@@ -52,7 +53,7 @@ export class WireframesController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a screen' })
-  remove(@CurrentUser('id') userId: string, @Param('id') id: string) {
+  remove(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.wireframesService.remove(id, userId);
   }
 
@@ -60,7 +61,7 @@ export class WireframesController {
   @ApiOperation({ summary: 'Generate wireframes for all screens' })
   generateWireframes(
     @CurrentUser('id') userId: string,
-    @Param('projectId') projectId: string,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
     return this.wireframesService.generateWireframes(projectId, userId);
   }
@@ -69,7 +70,7 @@ export class WireframesController {
   @ApiOperation({ summary: 'Reorder screens' })
   reorderScreens(
     @CurrentUser('id') userId: string,
-    @Param('projectId') projectId: string,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body('screenIds') screenIds: string[],
   ) {
     return this.wireframesService.reorderScreens(projectId, userId, screenIds);

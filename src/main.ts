@@ -76,6 +76,8 @@ async function bootstrap() {
     console.log(`Swagger docs: http://localhost:${configService.get<number>('app.port') || 3000}/api/docs`);
   }
 
+  app.enableShutdownHooks();
+
   const port = configService.get<number>('app.port') || 3000;
   await app.listen(port);
   console.log(`AppForge API running on http://localhost:${port}/api/v1`);
