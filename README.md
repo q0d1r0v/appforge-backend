@@ -225,6 +225,350 @@ Project is ready — can be exported or moved to development
 
 ---
 
+## Tech Stack
+
+| Technology | Purpose |
+|-----------|---------|
+| NestJS v11 | Backend framework (Express) |
+| TypeScript 5.7 | Language |
+| Prisma v7 | ORM with PostgreSQL adapter |
+| PostgreSQL | Primary database |
+| Passport JWT + Local | Authentication strategies |
+| Claude AI (claude-sonnet-4-20250514) | AI analysis, wireframes, estimates, codegen |
+| Stripe | Subscription payments & billing |
+| SendGrid | Transactional emails |
+| Cloudflare R2 | File storage (S3-compatible) |
+| Socket.IO | Real-time WebSocket events |
+| Redis | Caching (optional, falls back to in-memory) |
+| @nestjs/throttler | Rate limiting |
+
+---
+
+## Setup & Installation
+
+```bash
+# Clone the repository
+git clone <repo-url>
+cd appforge-backend
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your values
+
+# Run database migrations
+npx prisma migrate dev
+
+# Start development server
+npm run start:dev
+```
+
+---
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | — |
+| `JWT_SECRET` | JWT signing key | — |
+| `JWT_EXPIRATION` | Access token TTL | `15m` |
+| `JWT_REFRESH_SECRET` | Refresh token signing key | — |
+| `JWT_REFRESH_EXPIRATION` | Refresh token TTL | `7d` |
+| `CLAUDE_API_KEY` | Anthropic API key | — |
+| `PORT` | Server port | `3000` |
+| `NODE_ENV` | Environment | `development` |
+| `REDIS_HOST` | Redis host (optional) | `localhost` |
+| `REDIS_PORT` | Redis port (optional) | `6379` |
+| `SENDGRID_API_KEY` | SendGrid API key | — |
+| `SENDGRID_FROM_EMAIL` | Sender email address | — |
+| `FRONTEND_URL` | Frontend URL for email links | — |
+| `STRIPE_SECRET_KEY` | Stripe secret key | — |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature secret | — |
+| `R2_BUCKET` | Cloudflare R2 bucket name | — |
+| `R2_ACCESS_KEY` | R2 access key | — |
+| `R2_SECRET_KEY` | R2 secret key | — |
+| `R2_ENDPOINT` | R2 endpoint URL | — |
+| `R2_GET_URL` | R2 public GET URL | — |
+| `STRIPE_FREE_PRICE_ID` | Stripe price ID for Free tier | — |
+| `STRIPE_STARTER_PRICE_ID` | Stripe price ID for Starter tier | — |
+| `STRIPE_PRO_PRICE_ID` | Stripe price ID for Pro tier | — |
+| `STRIPE_ENTERPRISE_PRICE_ID` | Stripe price ID for Enterprise tier | — |
+| `SWAGGER_USER` | Swagger docs basic auth username | — |
+| `SWAGGER_PASSWORD` | Swagger docs basic auth password | — |
+
+---
+
+## API Reference
+
+**Base URL:** `/api/v1`
+**Swagger Docs:** `/api/docs` (development only, basic auth)
+
+### Response Format
+
+**Success:**
+```json
+{ "success": true, "data": { ... }, "timestamp": "2026-02-08T12:00:00.000Z" }
+```
+
+**Paginated:**
+```json
+{
+  "success": true,
+  "data": [...],
+  "meta": { "page": 1, "limit": 10, "total": 100, "totalPages": 10, "hasNext": true, "hasPrev": false },
+  "timestamp": "2026-02-08T12:00:00.000Z"
+}
+```
+
+**Error:**
+```json
+{
+  "success": false,
+  "statusCode": 400,
+  "message": "Validation failed",
+  "errors": ["Email must be valid"],
+  "path": "/api/v1/auth/register",
+  "timestamp": "2026-02-08T12:00:00.000Z"
+}
+```
+
+### Auth Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/auth/register` | Register new user (14-day PRO trial) | Public |
+| POST | `/auth/login` | Login with email/password | Public |
+| POST | `/auth/refresh` | Refresh access token | Public |
+| POST | `/auth/forgot-password` | Request password reset email | Public |
+| POST | `/auth/reset-password` | Reset password with token | Public |
+| POST | `/auth/verify-email` | Verify email with token | Public |
+| POST | `/auth/resend-verification` | Resend verification email | Public |
+
+### Users Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/users/me` | Get current user profile | JWT |
+| PATCH | `/users/me` | Update profile (name, company, position, avatar) | JWT |
+| PATCH | `/users/me/password` | Change password | JWT |
+| GET | `/users` | List all users (paginated) | Admin |
+
+### Projects Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/projects` | Create project (triggers AI analysis) | JWT |
+| GET | `/projects` | List user's projects (paginated) | JWT |
+| GET | `/projects/:id` | Get project with features/screens/estimate | JWT |
+| PATCH | `/projects/:id` | Update project (DRAFT/READY only) | JWT |
+| DELETE | `/projects/:id` | Delete project | JWT |
+| POST | `/projects/:id/archive` | Archive project | JWT |
+| POST | `/projects/:id/unarchive` | Unarchive to DRAFT | JWT |
+| POST | `/projects/:id/reanalyze` | Restart AI analysis | JWT |
+| PATCH | `/projects/:id/status` | Transition project status | JWT |
+| POST | `/projects/:id/estimate` | Generate cost/time estimate | JWT |
+| GET | `/projects/:id/estimate` | Get project estimate | JWT |
+| GET | `/projects/:id/export` | Export full project data | JWT |
+
+### AI Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/ai/analyze` | Analyze app idea | JWT |
+| POST | `/ai/wireframe` | Generate wireframe for screen | JWT |
+| POST | `/ai/estimate` | Generate project estimate | JWT |
+| POST | `/ai/codegen` | Generate code skeleton | JWT |
+
+### Wireframes Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/wireframes/project/:projectId` | List screens for project | JWT |
+| GET | `/wireframes/:id` | Get single screen | JWT |
+| POST | `/wireframes` | Create new screen | JWT |
+| PATCH | `/wireframes/:id` | Update screen | JWT |
+| DELETE | `/wireframes/:id` | Delete screen | JWT |
+| POST | `/wireframes/generate/:projectId` | Generate all wireframes | JWT |
+| PATCH | `/wireframes/reorder/:projectId` | Reorder screens | JWT |
+
+### Prototypes Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/prototypes/:projectId` | Get prototype with connections | JWT |
+| PATCH | `/prototypes/connections` | Update screen connections | JWT |
+| POST | `/prototypes/:projectId/validate` | Validate all connections | JWT |
+
+### Stripe Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/stripe/checkout` | Create Stripe checkout session | JWT |
+| POST | `/stripe/webhook` | Stripe webhook handler | Public |
+| POST | `/stripe/cancel` | Cancel subscription | JWT |
+| GET | `/stripe/status` | Get subscription status | JWT |
+
+### Organizations Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/organizations` | Create organization | JWT |
+| GET | `/organizations` | List user's organizations | JWT |
+| GET | `/organizations/:id` | Get organization details | JWT |
+| PATCH | `/organizations/:id` | Update organization | Owner/Admin |
+| DELETE | `/organizations/:id` | Delete organization | Owner |
+| GET | `/organizations/:id/members` | List members | JWT |
+| POST | `/organizations/:id/invites` | Invite member by email | Owner/Admin |
+| DELETE | `/organizations/:id/invites/:inviteId` | Revoke invite | Owner/Admin |
+| POST | `/organizations/invites/:token/accept` | Accept invite | JWT |
+| DELETE | `/organizations/:id/members/:memberId` | Remove member | Owner/Admin |
+| PATCH | `/organizations/:id/members/:memberId/role` | Change member role | Owner |
+
+### Billing Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/billing/summary` | Billing overview | JWT |
+| GET | `/billing/invoices` | Invoice list (paginated) | JWT |
+| GET | `/billing/invoices/:id` | Invoice detail | JWT |
+| GET | `/billing/usage-report` | Usage report with date filter | JWT |
+
+### Uploads Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/uploads/avatar` | Upload avatar (max 2MB, JPEG/PNG/WebP) | JWT |
+| POST | `/uploads/thumbnail` | Upload thumbnail (max 5MB, JPEG/PNG/WebP/GIF) | JWT |
+
+### Analytics Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/analytics/usage` | User's token usage stats | JWT |
+| GET | `/analytics/usage/trend` | Monthly usage trend (12 months) | JWT |
+| GET | `/analytics/projects/:id/usage` | Per-project token usage | JWT |
+| GET | `/analytics/admin/system` | System-wide stats | Admin |
+| GET | `/analytics/admin/revenue` | Revenue analytics | Admin |
+| GET | `/analytics/admin/tiers` | Tier distribution | Admin |
+
+### Admin Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/admin/dashboard` | System dashboard stats | Admin |
+| GET | `/admin/users` | User list with filter/pagination | Admin |
+| PATCH | `/admin/users/:id/tier` | Change user subscription tier | Admin |
+| GET | `/admin/ai-calls` | Recent AI API calls | Admin |
+| GET | `/admin/usage` | System usage breakdown | Admin |
+
+---
+
+## Subscription Tiers
+
+| Tier | Price | Monthly Tokens | Max Projects | Daily AI Requests | Code Gen | Advanced Estimates | Custom Templates | Priority Support |
+|------|-------|---------------|--------------|-------------------|----------|--------------------|------------------|-----------------|
+| FREE | $0 | 50,000 | 3 | 10 | No | No | No | No |
+| STARTER | $19/mo | 200,000 | 10 | 50 | No | Yes | Yes | No |
+| PRO | $49/mo | 1,000,000 | 50 | 200 | Yes | Yes | Yes | Yes |
+| ENTERPRISE | $199/mo | Unlimited | Unlimited | Unlimited | Yes | Yes | Yes | Yes |
+
+### Trial System
+- New users get a **14-day PRO trial** on registration
+- Email alert sent 3 days before trial expiration
+- Auto-downgrade to FREE when trial expires
+
+---
+
+## Guards & Decorators
+
+| Guard/Decorator | Description |
+|-----------------|-------------|
+| `JwtAuthGuard` | Default auth guard on all routes |
+| `LocalAuthGuard` | Email/password validation (login only) |
+| `RolesGuard` | Role-based access control |
+| `EmailVerifiedGuard` | Blocks unverified email users |
+| `TierGuard` | Subscription tier enforcement |
+| `QuotaGuard` | Token/request quota checking |
+| `@Public()` | Skip JWT authentication |
+| `@SkipEmailVerification()` | Bypass email verification requirement |
+| `@Roles(UserRole.ADMIN)` | Require specific user roles |
+| `@RequireTier(SubscriptionTier.PRO)` | Require subscription tier |
+| `@RequireFeature('codeGeneration')` | Require specific feature |
+| `@CurrentUser()` | Inject current user into handler |
+
+---
+
+## WebSocket Events
+
+**Namespace:** `/events`
+**Auth:** JWT token in `auth.token` handshake
+
+### Server → Client Events
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `project:status-changed` | `{ projectId, status, projectName }` | Project status updated |
+| `project:analysis-progress` | `{ projectId, step, progress, message }` | AI analysis progress |
+| `project:analysis-completed` | `{ projectId, featuresCount, screensCount }` | Analysis done |
+| `project:wireframe-progress` | `{ projectId, screenName, current, totalScreens }` | Wireframe gen progress |
+| `project:wireframe-completed` | `{ projectId }` | All wireframes generated |
+| `notification` | `{ type, title, message, metadata }` | Generic notification |
+| `error` | `{ message, context }` | Error event |
+| `upload:completed` | `{ type, url }` | File upload completed |
+| `user:online` | `{ userId }` | User came online |
+| `user:offline` | `{ userId }` | User went offline |
+
+### Client → Server Events
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `join:project` | `{ projectId }` | Join project room |
+| `leave:project` | `{ projectId }` | Leave project room |
+| `typing:start` | `{ projectId }` | Started typing |
+| `typing:stop` | `{ projectId }` | Stopped typing |
+| `presence:get` | — | Get online users list |
+
+---
+
+## Database Models
+
+| Model | Description |
+|-------|-------------|
+| User | User accounts with roles, tiers, trial info |
+| Subscription | Stripe subscription records |
+| Organization | Team/company organizations |
+| OrganizationMember | Org membership with roles |
+| OrganizationInvite | Pending org invitations |
+| Project | App projects with AI analysis results |
+| Screen | Project screens with wireframe JSON |
+| Feature | Project features with priority/complexity |
+| Estimate | Cost/time estimates per project |
+| Template | Reusable project templates |
+| PromptHistory | AI API call logs for analytics |
+| PasswordReset | Password reset tokens |
+| EmailVerification | Email verification tokens |
+| Invoice | Stripe invoice records |
+| UsageRecord | Monthly token/request usage aggregation |
+
+---
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run start:dev` | Start in development mode (watch) |
+| `npm run start:debug` | Start in debug mode |
+| `npm run start:prod` | Start production server |
+| `npm run build` | Build the project |
+| `npm run lint` | Lint and fix code |
+| `npm run test` | Run unit tests |
+| `npm run test:e2e` | Run end-to-end tests |
+| `npm run test:cov` | Run tests with coverage |
+
+---
+
 ## Summary
 
 AppForge is a fully automated platform that takes you from idea to a complete project document. With the help of artificial intelligence, users can get a professional-grade project plan without needing any technical knowledge. The platform works in real time, keeps you informed about every step of the process, and allows you to export the complete project data.
