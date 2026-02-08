@@ -9,6 +9,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
+import { EmailVerifiedGuard } from '@/common/guards/email-verified.guard';
 import { UsersModule } from '@/modules/users/users.module';
 
 @Module({
@@ -38,6 +39,10 @@ import { UsersModule } from '@/modules/users/users.module';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: EmailVerifiedGuard,
     },
   ],
   exports: [AuthService],

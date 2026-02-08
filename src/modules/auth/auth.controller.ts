@@ -8,6 +8,8 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -54,5 +56,21 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh access token' })
   refreshToken(@Body('refreshToken') refreshToken: string) {
     return this.authService.refreshTokens(refreshToken);
+  }
+
+  @Public()
+  @Throttle({ short: { ttl: 60000, limit: 3 } })
+  @Post('verify-email')
+  @ApiOperation({ summary: 'Verify email address with token' })
+  verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto.token);
+  }
+
+  @Public()
+  @Throttle({ short: { ttl: 60000, limit: 2 } })
+  @Post('resend-verification')
+  @ApiOperation({ summary: 'Resend email verification link' })
+  resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.authService.resendVerificationEmail(dto.email);
   }
 }

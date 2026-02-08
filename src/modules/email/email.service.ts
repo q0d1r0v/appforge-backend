@@ -31,6 +31,28 @@ export class EmailService {
     }
   }
 
+  async sendEmailVerificationEmail(
+    to: string,
+    name: string,
+    verificationToken: string,
+  ): Promise<void> {
+    try {
+      const verifyUrl = `${this.frontendUrl}/verify-email?token=${verificationToken}`;
+      await sgMail.send({
+        to,
+        from: this.fromEmail,
+        subject: 'Verify Your AppForge Email Address',
+        html: this.buildEmailVerificationHtml(name, verifyUrl),
+      });
+      this.logger.log(`Email verification sent to ${to}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send email verification to ${to}`,
+        error,
+      );
+    }
+  }
+
   async sendPasswordResetEmail(
     to: string,
     name: string,
@@ -153,6 +175,22 @@ export class EmailService {
           Create Your First Project
         </a>
         <p style="margin-top: 24px; color: #666;">The AppForge Team</p>
+      </div>
+    `;
+  }
+
+  private buildEmailVerificationHtml(name: string, verifyUrl: string): string {
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #6366f1;">Verify Your Email</h1>
+        <p>Hi ${name},</p>
+        <p>Welcome to AppForge! Please verify your email address by clicking the button below:</p>
+        <a href="${verifyUrl}"
+           style="display: inline-block; padding: 12px 24px; background: #6366f1; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">
+          Verify Email Address
+        </a>
+        <p style="margin-top: 24px; color: #666;">If you didn't create an account, you can safely ignore this email.</p>
+        <p style="color: #666;">This link expires in 24 hours.</p>
       </div>
     `;
   }

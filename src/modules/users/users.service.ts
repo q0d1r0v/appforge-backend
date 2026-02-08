@@ -42,6 +42,7 @@ export class UsersService {
           company: true,
           position: true,
           tier: true,
+          emailVerified: true,
           createdAt: true,
           lastLogin: true,
         },

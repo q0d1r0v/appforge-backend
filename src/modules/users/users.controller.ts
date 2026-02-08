@@ -2,6 +2,7 @@ import { Controller, Get, Patch, Body, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { SkipEmailVerification } from '@/common/decorators/skip-email-verification.decorator';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -15,6 +16,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
+  @SkipEmailVerification()
   @ApiOperation({ summary: 'Get profile information' })
   getProfile(@CurrentUser('id') userId: string) {
     return this.usersService.findById(userId);

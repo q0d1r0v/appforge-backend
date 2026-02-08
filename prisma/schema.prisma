@@ -42,6 +42,9 @@ model User {
   role      UserRole @default(AGENCY_OWNER)
   avatar    String?
 
+  // Email verification
+  emailVerified Boolean @default(false)
+
   // Company info
   company   String?
   position  String?
@@ -60,6 +63,7 @@ model User {
   templates Template[]
   subscription   Subscription?
   passwordResets PasswordReset[]
+  emailVerifications EmailVerification[]
   promptHistory  PromptHistory[]
   organizationMembers OrganizationMember[]
   usageRecords   UsageRecord[]
@@ -109,6 +113,20 @@ model PasswordReset {
   createdAt DateTime @default(now())
 
   @@map("password_resets")
+  @@index([token])
+  @@index([userId])
+}
+
+model EmailVerification {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("email_verifications")
   @@index([token])
   @@index([userId])
 }
