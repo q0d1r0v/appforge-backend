@@ -3,6 +3,9 @@
 /node_modules
 /build
 
+# configuration files
+appforge-frontend-prompt.json
+
 # Logs
 logs
 *.log

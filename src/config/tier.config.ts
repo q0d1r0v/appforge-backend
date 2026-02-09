@@ -25,8 +25,8 @@ export interface TierLimits {
 export const TIER_CONFIG: Record<SubscriptionTier, TierLimits> = {
   [SubscriptionTier.FREE]: {
     monthlyTokenQuota: 50_000,
-    maxProjects: 3,
-    dailyAiRequests: 10,
+    maxProjects: 2,
+    dailyAiRequests: 5,
     features: {
       codeGeneration: false,
       advancedEstimates: false,
@@ -44,10 +44,10 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierLimits> = {
   },
   [SubscriptionTier.STARTER]: {
     monthlyTokenQuota: 200_000,
-    maxProjects: 10,
+    maxProjects: 15,
     dailyAiRequests: 50,
     features: {
-      codeGeneration: false,
+      codeGeneration: true,
       advancedEstimates: true,
       customTemplates: true,
       exportProject: true,
@@ -59,7 +59,7 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierLimits> = {
       aiRequestsPerMinute: 10,
     },
     displayName: 'Starter',
-    monthlyPrice: 19,
+    monthlyPrice: 29,
   },
   [SubscriptionTier.PRO]: {
     monthlyTokenQuota: 1_000_000,
@@ -78,7 +78,7 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierLimits> = {
       aiRequestsPerMinute: 20,
     },
     displayName: 'Pro',
-    monthlyPrice: 49,
+    monthlyPrice: 59,
   },
   [SubscriptionTier.ENTERPRISE]: {
     monthlyTokenQuota: Infinity,
@@ -97,7 +97,7 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierLimits> = {
       aiRequestsPerMinute: 60,
     },
     displayName: 'Enterprise',
-    monthlyPrice: 199,
+    monthlyPrice: 249,
   },
 };
 

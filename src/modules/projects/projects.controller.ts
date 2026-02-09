@@ -14,7 +14,7 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ParseUUIDPipe } from '@/common/pipes/parse-uuid.pipe';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { ProjectQueryDto } from './dto/project-query.dto';
 import { ProjectStatus } from '@prisma/client';
 
 @ApiTags('Projects')
@@ -33,7 +33,7 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Get all projects (with pagination)' })
   findAll(
     @CurrentUser('id') userId: string,
-    @Query() query: PaginationQueryDto,
+    @Query() query: ProjectQueryDto,
   ) {
     return this.projectsService.findAll(userId, query);
   }

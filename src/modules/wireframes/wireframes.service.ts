@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AIService } from '@/modules/ai/ai.service';
 import { EventsGateway } from '@/modules/events/events.gateway';
+import { ProjectAccessService } from '@/common/services/project-access.service';
 import { CreateScreenDto } from './dto/create-screen.dto';
 import { UpdateScreenDto } from './dto/update-screen.dto';
 import { ProjectStatus } from '@prisma/client';
@@ -12,15 +13,11 @@ export class WireframesService {
     private prisma: PrismaService,
     private aiService: AIService,
     private eventsGateway: EventsGateway,
+    private projectAccess: ProjectAccessService,
   ) {}
 
   async findAllByProject(projectId: string, userId: string) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: projectId, userId },
-    });
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
+    await this.projectAccess.canAccessProject(projectId, userId);
 
     return this.prisma.screen.findMany({
       where: { projectId },
@@ -34,20 +31,17 @@ export class WireframesService {
       include: { project: true },
     });
 
-    if (!screen || screen.project.userId !== userId) {
+    if (!screen) {
       throw new NotFoundException('Screen not found');
     }
+
+    await this.projectAccess.canAccessProject(screen.projectId, userId);
 
     return screen;
   }
 
   async create(userId: string, dto: CreateScreenDto) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: dto.projectId, userId },
-    });
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
+    await this.projectAccess.canModifyProject(dto.projectId, userId);
 
     return this.prisma.screen.create({
       data: {
@@ -61,7 +55,16 @@ export class WireframesService {
   }
 
   async update(screenId: string, userId: string, dto: UpdateScreenDto) {
-    await this.findOne(screenId, userId);
+    const screen = await this.prisma.screen.findUnique({
+      where: { id: screenId },
+      include: { project: true },
+    });
+
+    if (!screen) {
+      throw new NotFoundException('Screen not found');
+    }
+
+    await this.projectAccess.canModifyProject(screen.projectId, userId);
 
     return this.prisma.screen.update({
       where: { id: screenId },
@@ -70,7 +73,16 @@ export class WireframesService {
   }
 
   async remove(screenId: string, userId: string) {
-    const screen = await this.findOne(screenId, userId);
+    const screen = await this.prisma.screen.findUnique({
+      where: { id: screenId },
+      include: { project: true },
+    });
+
+    if (!screen) {
+      throw new NotFoundException('Screen not found');
+    }
+
+    await this.projectAccess.canModifyProject(screen.projectId, userId);
 
     await this.prisma.screen.delete({ where: { id: screenId } });
 
@@ -87,8 +99,10 @@ export class WireframesService {
   }
 
   async generateWireframes(projectId: string, userId: string) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: projectId, userId },
+    await this.projectAccess.canModifyProject(projectId, userId);
+
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
       include: {
         screens: { orderBy: { order: 'asc' } },
         features: true,
@@ -185,12 +199,7 @@ export class WireframesService {
     userId: string,
     screenIds: string[],
   ) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: projectId, userId },
-    });
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
+    await this.projectAccess.canModifyProject(projectId, userId);
 
     const updates = screenIds.map((id, index) =>
       this.prisma.screen.update({

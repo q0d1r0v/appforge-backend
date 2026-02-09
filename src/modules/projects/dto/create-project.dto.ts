@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MinLength } from 'class-validator';
+import { IsString, IsOptional, MinLength, IsUUID } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateProjectDto {
@@ -11,4 +11,9 @@ export class CreateProjectDto {
   @IsString()
   @MinLength(20, { message: 'Describe the app idea with at least 20 characters' })
   description: string;
+
+  @ApiPropertyOptional({ description: 'Organization ID to create project in' })
+  @IsOptional()
+  @IsUUID()
+  organizationId?: string;
 }

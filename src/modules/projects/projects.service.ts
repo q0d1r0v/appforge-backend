@@ -3,6 +3,7 @@ import {
   Inject,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
@@ -10,9 +11,10 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { AIService } from '@/modules/ai/ai.service';
 import { EventsGateway } from '@/modules/events/events.gateway';
 import { EmailService } from '@/modules/email/email.service';
+import { ProjectAccessService } from '@/common/services/project-access.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { ProjectQueryDto } from './dto/project-query.dto';
 import { paginate, paginationArgs } from '@/common/helpers/pagination.helper';
 import { Prisma, ProjectStatus } from '@prisma/client';
 
@@ -23,13 +25,19 @@ export class ProjectsService {
     private aiService: AIService,
     private eventsGateway: EventsGateway,
     private emailService: EmailService,
+    private projectAccess: ProjectAccessService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async create(userId: string, dto: CreateProjectDto) {
+    if (dto.organizationId) {
+      await this.projectAccess.canCreateInOrganization(dto.organizationId, userId);
+    }
+
     const project = await this.prisma.project.create({
       data: {
         userId,
+        organizationId: dto.organizationId || null,
         name: dto.name || 'Untitled Project',
         description: dto.description,
         status: ProjectStatus.ANALYZING,
@@ -37,6 +45,9 @@ export class ProjectsService {
     });
 
     await this.invalidateProjectListCache(userId);
+    if (dto.organizationId) {
+      await this.invalidateOrgProjectListCache(dto.organizationId);
+    }
 
     // Trigger AI analysis asynchronously
     this.analyzeProjectInBackground(project.id, userId, dto.description);
@@ -167,12 +178,31 @@ export class ProjectsService {
     }
   }
 
-  async findAll(userId: string, query: PaginationQueryDto) {
-    const cacheKey = `projects:${userId}:${query.page}:${query.limit}:${query.search || ''}:${query.sortBy || ''}:${query.sortOrder || ''}`;
+  async findAll(userId: string, query: ProjectQueryDto) {
+    if (query.organizationId) {
+      const member = await this.prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: query.organizationId,
+            userId,
+          },
+        },
+      });
+      if (!member) {
+        throw new ForbiddenException('You are not a member of this organization');
+      }
+    }
+
+    const cacheKey = query.organizationId
+      ? `org:${query.organizationId}:projects:${query.page}:${query.limit}:${query.search || ''}:${query.sortBy || ''}:${query.sortOrder || ''}`
+      : `projects:${userId}:${query.page}:${query.limit}:${query.search || ''}:${query.sortBy || ''}:${query.sortOrder || ''}`;
+
     const cached = await this.cacheManager.get(cacheKey);
     if (cached) return cached as any;
 
-    const where: Prisma.ProjectWhereInput = { userId };
+    const where: Prisma.ProjectWhereInput = query.organizationId
+      ? { organizationId: query.organizationId }
+      : { userId };
 
     if (query.search) {
       where.OR = [
@@ -205,8 +235,10 @@ export class ProjectsService {
     const cached = await this.cacheManager.get(cacheKey);
     if (cached) return cached as any;
 
-    const project = await this.prisma.project.findFirst({
-      where: { id, userId },
+    await this.projectAccess.canAccessProject(id, userId);
+
+    const project = await this.prisma.project.findUnique({
+      where: { id },
       include: {
         features: {
           orderBy: { priority: 'asc' },
@@ -218,16 +250,12 @@ export class ProjectsService {
       },
     });
 
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
-
     await this.cacheManager.set(cacheKey, project, 60000); // 60s
     return project;
   }
 
   async update(id: string, userId: string, dto: UpdateProjectDto) {
-    const project = await this.findOne(id, userId);
+    const { project } = await this.projectAccess.canModifyProject(id, userId);
 
     if (
       project.status !== ProjectStatus.DRAFT &&
@@ -249,14 +277,17 @@ export class ProjectsService {
   }
 
   async remove(id: string, userId: string) {
-    await this.findOne(id, userId);
+    const { project } = await this.projectAccess.canModifyProject(id, userId);
     await this.prisma.project.delete({ where: { id } });
     await this.invalidateProjectCache(id, userId);
+    if (project.organizationId) {
+      await this.invalidateOrgProjectListCache(project.organizationId);
+    }
     return { message: 'Project deleted successfully' };
   }
 
   async archive(id: string, userId: string) {
-    await this.findOne(id, userId);
+    await this.projectAccess.canModifyProject(id, userId);
     const archived = await this.prisma.project.update({
       where: { id },
       data: {
@@ -269,7 +300,7 @@ export class ProjectsService {
   }
 
   async unarchive(id: string, userId: string) {
-    const project = await this.findOne(id, userId);
+    const { project } = await this.projectAccess.canModifyProject(id, userId);
     if (project.status !== ProjectStatus.ARCHIVED) {
       throw new BadRequestException('Project is not archived');
     }
@@ -285,7 +316,7 @@ export class ProjectsService {
   }
 
   async reanalyze(id: string, userId: string) {
-    const project = await this.findOne(id, userId);
+    const { project } = await this.projectAccess.canModifyProject(id, userId);
 
     // Delete old features and screens
     await this.prisma.feature.deleteMany({ where: { projectId: id } });
@@ -313,7 +344,7 @@ export class ProjectsService {
     userId: string,
     newStatus: ProjectStatus,
   ) {
-    const project = await this.findOne(id, userId);
+    const { project } = await this.projectAccess.canModifyProject(id, userId);
     const allowed =
       ProjectsService.VALID_TRANSITIONS[project.status] || [];
 
@@ -332,9 +363,14 @@ export class ProjectsService {
   }
 
   async generateEstimate(id: string, userId: string) {
-    const project = await this.findOne(id, userId);
+    await this.projectAccess.canModifyProject(id, userId);
 
-    if (!project.features || project.features.length === 0) {
+    const project = await this.prisma.project.findUnique({
+      where: { id },
+      include: { features: true },
+    });
+
+    if (!project || !project.features || project.features.length === 0) {
       throw new BadRequestException(
         'Project must have features to generate estimate',
       );
@@ -409,7 +445,7 @@ export class ProjectsService {
   }
 
   async getEstimate(id: string, userId: string) {
-    await this.findOne(id, userId);
+    await this.projectAccess.canAccessProject(id, userId);
     const estimate = await this.prisma.estimate.findUnique({
       where: { projectId: id },
     });
@@ -420,8 +456,10 @@ export class ProjectsService {
   }
 
   async exportProject(id: string, userId: string) {
-    const project = await this.prisma.project.findFirst({
-      where: { id, userId },
+    await this.projectAccess.canAccessProject(id, userId);
+
+    const project = await this.prisma.project.findUnique({
+      where: { id },
       include: {
         features: { orderBy: { priority: 'asc' } },
         screens: { orderBy: { order: 'asc' } },
@@ -455,11 +493,24 @@ export class ProjectsService {
   private async invalidateProjectCache(projectId: string, userId: string) {
     await this.cacheManager.del(`project:${projectId}`);
     await this.invalidateProjectListCache(userId);
+
+    // Also invalidate org cache if project belongs to an org
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: { organizationId: true },
+    });
+    if (project?.organizationId) {
+      await this.invalidateOrgProjectListCache(project.organizationId);
+    }
   }
 
   private async invalidateProjectListCache(userId: string) {
     // Delete known list cache patterns
     // For simplicity, we delete the default first page cache
     await this.cacheManager.del(`projects:${userId}:1:10::::`);
+  }
+
+  private async invalidateOrgProjectListCache(orgId: string) {
+    await this.cacheManager.del(`org:${orgId}:projects:1:10::::`);
   }
 }

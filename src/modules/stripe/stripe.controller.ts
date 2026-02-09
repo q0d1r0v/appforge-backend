@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Body,
   Headers,
   HttpCode,
   RawBody,
@@ -15,6 +16,7 @@ import {
 import { StripeService } from './stripe.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public.decorator';
+import { CreateTierCheckoutDto } from './dto/create-tier-checkout.dto';
 
 @ApiTags('Stripe')
 @Controller('stripe')
@@ -24,8 +26,11 @@ export class StripeController {
   @Post('checkout')
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Create Stripe checkout session for subscription' })
-  createCheckout(@CurrentUser('id') userId: string) {
-    return this.stripeService.createCheckoutSession(userId);
+  createCheckout(
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreateTierCheckoutDto,
+  ) {
+    return this.stripeService.createTierCheckout(userId, dto.tier);
   }
 
   @Post('webhook')

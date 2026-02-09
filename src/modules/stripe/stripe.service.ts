@@ -77,6 +77,7 @@ export class StripeService {
     const session = await this.stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
+      currency: 'usd',
       payment_method_types: ['card'],
       line_items: [
         {
@@ -197,6 +198,7 @@ export class StripeService {
     const session = await this.stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'payment',
+      currency: 'usd',
       payment_method_types: ['card'],
       line_items: [
         {
