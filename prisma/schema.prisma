@@ -35,23 +35,23 @@ enum InviteStatus {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      UserRole @default(AGENCY_OWNER)
-  avatar    String?
+  id       String   @id @default(uuid())
+  email    String   @unique
+  password String
+  name     String
+  role     UserRole @default(AGENCY_OWNER)
+  avatar   String?
 
   // Email verification
   emailVerified Boolean @default(false)
 
   // Company info
-  company   String?
-  position  String?
+  company  String?
+  position String?
 
   // Subscription
-  tier      SubscriptionTier @default(FREE)
-  stripeCustomerId String? @unique
+  tier             SubscriptionTier @default(FREE)
+  stripeCustomerId String?          @unique
 
   // Trial
   trialStartedAt DateTime?
@@ -59,18 +59,18 @@ model User {
   trialExpired   Boolean   @default(false)
 
   // Relations
-  projects  Project[]
-  templates Template[]
-  subscription   Subscription?
-  passwordResets PasswordReset[]
-  emailVerifications EmailVerification[]
-  promptHistory  PromptHistory[]
+  projects            Project[]
+  templates           Template[]
+  subscription        Subscription?
+  passwordResets      PasswordReset[]
+  emailVerifications  EmailVerification[]
+  promptHistory       PromptHistory[]
   organizationMembers OrganizationMember[]
-  usageRecords   UsageRecord[]
+  usageRecords        UsageRecord[]
 
   // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   lastLogin DateTime?
 
   @@map("users")
@@ -84,37 +84,37 @@ enum SubscriptionStatus {
 }
 
 model Subscription {
-  id                    String             @id @default(uuid())
-  userId                String             @unique
-  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  stripeSubscriptionId  String             @unique
-  status                SubscriptionStatus @default(ACTIVE)
-  priceId               String
-  tier                  SubscriptionTier   @default(PRO)
+  stripeSubscriptionId String             @unique
+  status               SubscriptionStatus @default(ACTIVE)
+  priceId              String
+  tier                 SubscriptionTier   @default(PRO)
 
-  currentPeriodStart    DateTime
-  currentPeriodEnd      DateTime
-  canceledAt            DateTime?
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  canceledAt         DateTime?
 
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("subscriptions")
 }
 
 model PasswordReset {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
-  @@map("password_resets")
   @@index([token])
   @@index([userId])
+  @@map("password_resets")
 }
 
 model EmailVerification {
@@ -126,9 +126,9 @@ model EmailVerification {
   usedAt    DateTime?
   createdAt DateTime  @default(now())
 
-  @@map("email_verifications")
   @@index([token])
   @@index([userId])
+  @@map("email_verifications")
 }
 
 // ============================================
@@ -136,19 +136,19 @@ model EmailVerification {
 // ============================================
 
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique
-  logo      String?
+  id   String  @id @default(uuid())
+  name String
+  slug String  @unique
+  logo String?
 
   // Billing
   stripeCustomerId String?          @unique
   tier             SubscriptionTier @default(FREE)
 
   // Relations
-  members   OrganizationMember[]
-  invites   OrganizationInvite[]
-  projects  Project[]
+  members  OrganizationMember[]
+  invites  OrganizationInvite[]
+  projects Project[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -164,12 +164,12 @@ model OrganizationMember {
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   role           OrganizationRole @default(MEMBER)
 
-  joinedAt       DateTime         @default(now())
+  joinedAt DateTime @default(now())
 
   @@unique([organizationId, userId])
-  @@map("organization_members")
   @@index([userId])
   @@index([organizationId])
+  @@map("organization_members")
 }
 
 model OrganizationInvite {
@@ -182,14 +182,14 @@ model OrganizationInvite {
   token          String           @unique
   invitedBy      String
 
-  expiresAt      DateTime
-  acceptedAt     DateTime?
-  createdAt      DateTime         @default(now())
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
 
-  @@map("organization_invites")
   @@index([email])
   @@index([token])
   @@index([organizationId])
+  @@map("organization_invites")
 }
 
 // ============================================
@@ -197,13 +197,13 @@ model OrganizationInvite {
 // ============================================
 
 enum ProjectStatus {
-  DRAFT          // Hozircha yozilmoqda
-  ANALYZING      // AI tahlil qilmoqda
-  WIREFRAMING    // Wireframe yaratilmoqda
-  READY          // Tayyor
+  DRAFT // Hozircha yozilmoqda
+  ANALYZING // AI tahlil qilmoqda
+  WIREFRAMING // Wireframe yaratilmoqda
+  READY // Tayyor
   IN_DEVELOPMENT // Development boshlangan
-  COMPLETED      // Tugallangan
-  ARCHIVED       // Arxivlangan
+  COMPLETED // Tugallangan
+  ARCHIVED // Arxivlangan
 }
 
 enum ProjectType {
@@ -216,9 +216,9 @@ enum ProjectType {
 }
 
 model Project {
-  id          String        @id @default(uuid())
-  userId      String
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
@@ -230,33 +230,33 @@ model Project {
   status      ProjectStatus @default(DRAFT)
 
   // AI Analysis Results
-  aiAnalysis  Json?         // Structured AI output
-  /*
-    {
-      appName: string,
-      targetAudience: string,
-      coreProblem: string,
-      features: Feature[],
-      userPersonas: Persona[],
-      technicalRequirements: {},
-      estimatedComplexity: 'simple' | 'medium' | 'complex'
-    }
-  */
+  aiAnalysis Json? // Structured AI output
+  /**
+   * {
+   * appName: string,
+   * targetAudience: string,
+   * coreProblem: string,
+   * features: Feature[],
+   * userPersonas: Persona[],
+   * technicalRequirements: {},
+   * estimatedComplexity: 'simple' | 'medium' | 'complex'
+   * }
+   */
 
   // Relations
-  screens     Screen[]
-  features    Feature[]
-  estimate    Estimate?
+  screens  Screen[]
+  features Feature[]
+  estimate Estimate?
 
   // Metadata
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  archivedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  archivedAt DateTime?
 
-  @@map("projects")
   @@index([userId, status])
   @@index([organizationId])
   @@index([createdAt])
+  @@map("projects")
 }
 
 // ============================================
@@ -281,47 +281,47 @@ enum ScreenType {
 }
 
 model Screen {
-  id          String     @id @default(uuid())
-  projectId   String
-  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   // Screen info
-  name        String     // "Login Screen"
-  type        ScreenType @default(CUSTOM)
-  order       Int        // Display order
+  name  String // "Login Screen"
+  type  ScreenType @default(CUSTOM)
+  order Int // Display order
 
   // Wireframe data
-  wireframe   Json       // Component tree structure
-  /*
-    {
-      layout: 'column' | 'row',
-      components: [
-        {
-          id: string,
-          type: 'button' | 'input' | 'text' | 'image',
-          props: {},
-          children: [],
-          position: { x, y, width, height }
-        }
-      ]
-    }
-  */
+  wireframe Json // Component tree structure
+  /**
+   * {
+   * layout: 'column' | 'row',
+   * components: [
+   * {
+   * id: string,
+   * type: 'button' | 'input' | 'text' | 'image',
+   * props: {},
+   * children: [],
+   * position: { x, y, width, height }
+   * }
+   * ]
+   * }
+   */
 
   // Navigation
-  connections Json?      // Links to other screens
-  /*
-    [
-      { targetScreenId: string, trigger: 'onClick', componentId: string }
-    ]
-  */
+  connections Json? // Links to other screens
+  /**
+   * [
+   * { targetScreenId: string, trigger: 'onClick', componentId: string }
+   * ]
+   */
 
   // Metadata
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("screens")
-  @@index([projectId])
   @@unique([projectId, order])
+  @@index([projectId])
+  @@map("screens")
 }
 
 // ============================================
@@ -329,11 +329,11 @@ model Screen {
 // ============================================
 
 enum FeaturePriority {
-  MVP        // Must have for MVP
-  HIGH       // Important
-  MEDIUM     // Nice to have
-  LOW        // Future enhancement
-  OPTIONAL   // Client can decide
+  MVP // Must have for MVP
+  HIGH // Important
+  MEDIUM // Nice to have
+  LOW // Future enhancement
+  OPTIONAL // Client can decide
 }
 
 enum FeatureStatus {
@@ -344,30 +344,30 @@ enum FeatureStatus {
 }
 
 model Feature {
-  id          String          @id @default(uuid())
-  projectId   String
-  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   // Feature info
   name        String
   description String          @db.Text
-  category    String          // "Authentication", "Payment", "Notifications"
+  category    String // "Authentication", "Payment", "Notifications"
   priority    FeaturePriority @default(MEDIUM)
   status      FeatureStatus   @default(PLANNED)
 
   // Estimation
   estimatedHours Int?
-  complexity     Int?          // 1-10 scale
+  complexity     Int? // 1-10 scale
 
   // Dependencies
-  dependencies Json?          // [featureId1, featureId2]
+  dependencies Json? // [featureId1, featureId2]
 
   // Technical details
-  technicalNotes String?       @db.Text
-  apiEndpoints   Json?         // Required API endpoints
+  technicalNotes String? @db.Text
+  apiEndpoints   Json? // Required API endpoints
 
-  @@map("features")
   @@index([projectId, priority])
+  @@map("features")
 }
 
 // ============================================
@@ -375,31 +375,31 @@ model Feature {
 // ============================================
 
 model Estimate {
-  id        String   @id @default(uuid())
-  projectId String   @unique
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  projectId String  @unique
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   // Time estimates
-  designHours      Int
-  frontendHours    Int
-  backendHours     Int
-  testingHours     Int
-  deploymentHours  Int
-  totalHours       Int
+  designHours     Int
+  frontendHours   Int
+  backendHours    Int
+  testingHours    Int
+  deploymentHours Int
+  totalHours      Int
 
   // Cost breakdown
-  designCost       Decimal @db.Decimal(10, 2)
-  developmentCost  Decimal @db.Decimal(10, 2)
+  designCost         Decimal @db.Decimal(10, 2)
+  developmentCost    Decimal @db.Decimal(10, 2)
   infrastructureCost Decimal @db.Decimal(10, 2)
-  totalCost        Decimal @db.Decimal(10, 2)
+  totalCost          Decimal @db.Decimal(10, 2)
 
   // Timeline
-  estimatedDuration String  // "8-10 weeks"
-  phases           Json     // [{ name, duration, cost }]
+  estimatedDuration String // "8-10 weeks"
+  phases            Json // [{ name, duration, cost }]
 
   // Metadata
-  generatedAt   DateTime @default(now())
-  version       Int      @default(1)
+  generatedAt DateTime @default(now())
+  version     Int      @default(1)
 
   @@map("estimates")
 }
@@ -421,36 +421,36 @@ enum TemplateCategory {
 }
 
 model Template {
-  id          String           @id @default(uuid())
-  userId      String?
-  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id     String  @id @default(uuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   // Template info
   name        String
   description String           @db.Text
   category    TemplateCategory
-  thumbnail   String?          // Image URL
+  thumbnail   String? // Image URL
 
   // Template data
-  screens     Json             // Array of screen configs
-  features    Json             // Associated features
+  screens  Json // Array of screen configs
+  features Json // Associated features
 
   // Marketplace
-  isPublic    Boolean          @default(false)
-  price       Decimal?         @db.Decimal(10, 2)
-  downloads   Int              @default(0)
-  rating      Decimal?         @db.Decimal(3, 2)
+  isPublic  Boolean  @default(false)
+  price     Decimal? @db.Decimal(10, 2)
+  downloads Int      @default(0)
+  rating    Decimal? @db.Decimal(3, 2)
 
   // Tags
-  tags        String[]
-  techStack   String[]         // ["React Native", "Firebase"]
+  tags      String[]
+  techStack String[] // ["React Native", "Firebase"]
 
   // Metadata
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("templates")
   @@index([category, isPublic])
+  @@map("templates")
 }
 
 // ============================================
@@ -458,32 +458,32 @@ model Template {
 // ============================================
 
 model PromptHistory {
-  id          String   @id @default(uuid())
-  projectId   String?
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id        String  @id @default(uuid())
+  projectId String?
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   // Prompt data
-  input       String   @db.Text  // User's original input
-  prompt      String   @db.Text  // Final prompt sent to Claude
-  response    Json                // Claude's response
+  input    String @db.Text // User's original input
+  prompt   String @db.Text // Final prompt sent to Claude
+  response Json // Claude's response
 
   // Model info
-  model       String              // "claude-sonnet-4-20250514"
-  tokens      Int
-  duration    Int                 // ms
+  model    String // "claude-sonnet-4-20250514"
+  tokens   Int
+  duration Int // ms
 
   // Quality tracking
-  wasEdited   Boolean  @default(false)  // Did user edit AI output?
-  rating      Int?                       // User feedback (1-5)
+  wasEdited Boolean @default(false) // Did user edit AI output?
+  rating    Int? // User feedback (1-5)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  @@map("prompt_history")
   @@index([projectId])
   @@index([userId, createdAt])
   @@index([createdAt])
   @@index([model])
+  @@map("prompt_history")
 }
 
 // ============================================
@@ -491,32 +491,32 @@ model PromptHistory {
 // ============================================
 
 model Invoice {
-  id                  String   @id @default(uuid())
-  userId              String?
-  organizationId      String?
+  id             String  @id @default(uuid())
+  userId         String?
+  organizationId String?
 
-  stripeInvoiceId     String   @unique
+  stripeInvoiceId     String  @unique
   stripePaymentIntent String?
 
-  amountDue           Int      // cents
-  amountPaid          Int      // cents
-  currency            String   @default("usd")
-  status              String   // draft, open, paid, void, uncollectible
+  amountDue  Int // cents
+  amountPaid Int // cents
+  currency   String @default("usd")
+  status     String // draft, open, paid, void, uncollectible
 
-  periodStart         DateTime
-  periodEnd           DateTime
+  periodStart DateTime
+  periodEnd   DateTime
 
-  invoiceUrl          String?  // Stripe hosted invoice URL
-  invoicePdf          String?  // PDF download URL
+  invoiceUrl String? // Stripe hosted invoice URL
+  invoicePdf String? // PDF download URL
 
-  lineItems           Json?    // Array of line items from Stripe
+  lineItems Json? // Array of line items from Stripe
 
-  createdAt           DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  @@map("invoices")
   @@index([userId])
   @@index([organizationId])
   @@index([createdAt])
+  @@map("invoices")
 }
 
 // ============================================
@@ -524,23 +524,23 @@ model Invoice {
 // ============================================
 
 model UsageRecord {
-  id            String   @id @default(uuid())
-  userId        String
+  id     String @id @default(uuid())
+  userId String
 
   // Period
-  year          Int
-  month         Int      // 1-12
+  year  Int
+  month Int // 1-12
 
   // Aggregated usage
-  totalTokens   Int      @default(0)
-  totalRequests Int      @default(0)
+  totalTokens   Int @default(0)
+  totalRequests Int @default(0)
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, year, month])
-  @@map("usage_records")
   @@index([userId, year, month])
+  @@map("usage_records")
 }

@@ -1,14 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
+import { ProjectAccessService } from '@/common/services/project-access.service';
 import { UpdateConnectionsDto } from './dto/update-connections.dto';
 
 @Injectable()
 export class PrototypesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private projectAccess: ProjectAccessService,
+  ) {}
 
   async getPrototype(projectId: string, userId: string) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: projectId, userId },
+    await this.projectAccess.canAccessProject(projectId, userId);
+
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
       include: {
         screens: {
           orderBy: { order: 'asc' },
@@ -45,9 +51,11 @@ export class PrototypesService {
       include: { project: true },
     });
 
-    if (!screen || screen.project.userId !== userId) {
+    if (!screen) {
       throw new NotFoundException('Screen not found');
     }
+
+    await this.projectAccess.canModifyProject(screen.projectId, userId);
 
     return this.prisma.screen.update({
       where: { id: dto.screenId },
@@ -56,8 +64,10 @@ export class PrototypesService {
   }
 
   async validateConnections(projectId: string, userId: string) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: projectId, userId },
+    await this.projectAccess.canAccessProject(projectId, userId);
+
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
       include: { screens: true },
     });
 

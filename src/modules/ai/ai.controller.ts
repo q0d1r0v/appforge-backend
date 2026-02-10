@@ -6,6 +6,7 @@ import { GenerateWireframeDto } from './dto/generate-wireframe.dto';
 import { GenerateEstimateDto } from './dto/generate-estimate.dto';
 import { GenerateCodeDto } from './dto/generate-code.dto';
 import { PrismaService } from '@/prisma/prisma.service';
+import { ProjectAccessService } from '@/common/services/project-access.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 
 @ApiTags('AI')
@@ -15,6 +16,7 @@ export class AIController {
   constructor(
     private readonly aiService: AIService,
     private readonly prisma: PrismaService,
+    private readonly projectAccess: ProjectAccessService,
   ) {}
 
   @Post('analyze')
@@ -29,9 +31,13 @@ export class AIController {
     @CurrentUser('id') userId: string,
     @Body() dto: GenerateWireframeDto,
   ) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: dto.projectId, userId },
+    await this.projectAccess.canModifyProject(dto.projectId, userId);
+
+    const project = await this.prisma.project.findUnique({
+      where: { id: dto.projectId },
+      select: { description: true },
     });
+
     if (!project) {
       throw new NotFoundException('Project not found');
     }
@@ -51,10 +57,13 @@ export class AIController {
     @CurrentUser('id') userId: string,
     @Body() dto: GenerateEstimateDto,
   ) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: dto.projectId, userId },
+    await this.projectAccess.canModifyProject(dto.projectId, userId);
+
+    const project = await this.prisma.project.findUnique({
+      where: { id: dto.projectId },
       include: { features: true },
     });
+
     if (!project) {
       throw new NotFoundException('Project not found');
     }
@@ -72,10 +81,13 @@ export class AIController {
     @CurrentUser('id') userId: string,
     @Body() dto: GenerateCodeDto,
   ) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: dto.projectId, userId },
+    await this.projectAccess.canModifyProject(dto.projectId, userId);
+
+    const project = await this.prisma.project.findUnique({
+      where: { id: dto.projectId },
       include: { features: true, screens: true },
     });
+
     if (!project) {
       throw new NotFoundException('Project not found');
     }
